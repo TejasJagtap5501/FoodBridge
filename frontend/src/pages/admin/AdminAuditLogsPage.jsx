@@ -1,0 +1,22 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { ScrollText, Search } from 'lucide-react';
+import { useState } from 'react';
+import { adminApi } from '@/api/endpoints';
+import { PageHeader } from '@/components/Stats';
+import { TableSkeleton } from '@/components/Loading';
+import { Badge, EmptyState, ErrorState, Pagination } from '@/components/Ui';
+import { useApi } from '@/hooks/useApi';
+import { formatDateTime } from '@/lib/format';
+const ACTIONS = [
+    'NGO_APPROVED', 'NGO_REJECTED', 'USER_ACTIVATED', 'USER_DEACTIVATED', 'DONATION_MODERATED',
+    'CATEGORY_CREATED', 'CATEGORY_UPDATED', 'CATEGORY_DELETED', 'CLAIM_FORCE_CANCELLED',
+    'PASSWORD_RESET_COMPLETED',
+];
+/** Immutable record of privileged actions — the accountability trail for admin operations. */
+export default function AdminAuditLogsPage() {
+    const [action, setAction] = useState('');
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(0);
+    const { data, loading, error, reload } = useApi(() => adminApi.auditLogs({ action: action || undefined, search, page, size: 25 }), [action, search, page]);
+    return (_jsxs("div", { children: [_jsx(PageHeader, { title: "Audit logs", description: "Who did what, when and from which IP. Entries are written by the backend inside the same transaction as the action." }), _jsxs("div", { className: "card card-body mb-4 grid gap-3 sm:grid-cols-3", children: [_jsxs("div", { className: "relative sm:col-span-2", children: [_jsx(Search, { className: "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" }), _jsx("label", { className: "sr-only", htmlFor: "audit-search", children: "Search audit logs" }), _jsx("input", { id: "audit-search", className: "input pl-9", placeholder: "Actor email or details", value: search, onChange: (event) => { setSearch(event.target.value); setPage(0); } })] }), _jsxs("div", { children: [_jsx("label", { className: "sr-only", htmlFor: "audit-action", children: "Action" }), _jsxs("select", { id: "audit-action", className: "input", value: action, onChange: (event) => { setAction(event.target.value); setPage(0); }, children: [_jsx("option", { value: "", children: "All actions" }), ACTIONS.map((option) => (_jsx("option", { value: option, children: option.replaceAll('_', ' ').toLowerCase() }, option)))] })] })] }), loading ? (_jsx(TableSkeleton, { rows: 8, columns: 5 })) : error ? (_jsx(ErrorState, { message: error, onRetry: reload })) : !data || data.content.length === 0 ? (_jsx(EmptyState, { icon: _jsx(ScrollText, { className: "h-5 w-5" }), title: "No audit entries match these filters", description: "Administrator decisions such as NGO approvals, account changes and force-cancelled claims are recorded here." })) : (_jsxs("div", { className: "card overflow-hidden", children: [_jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "table", children: [_jsx("thead", { children: _jsxs("tr", { children: [_jsx("th", { scope: "col", children: "When" }), _jsx("th", { scope: "col", children: "Actor" }), _jsx("th", { scope: "col", children: "Action" }), _jsx("th", { scope: "col", children: "Entity" }), _jsx("th", { scope: "col", children: "Details" }), _jsx("th", { scope: "col", children: "IP" })] }) }), _jsx("tbody", { children: data.content.map((entry) => (_jsxs("tr", { children: [_jsx("td", { className: "whitespace-nowrap text-xs text-ink-600", children: formatDateTime(entry.createdAt) }), _jsxs("td", { className: "text-sm text-ink-800", children: [entry.actorEmail ?? 'system', entry.actorId ? _jsxs("span", { className: "block text-[11px] text-ink-400", children: ["#", entry.actorId] }) : null] }), _jsx("td", { children: _jsx(Badge, { className: "bg-ink-100 text-ink-700", children: entry.action }) }), _jsxs("td", { className: "text-xs text-ink-600", children: [entry.entityType, entry.entityId ? ` #${entry.entityId}` : ''] }), _jsx("td", { className: "max-w-sm text-xs text-ink-600", children: entry.details ?? '—' }), _jsx("td", { className: "whitespace-nowrap font-mono text-[11px] text-ink-500", children: entry.ipAddress ?? '—' })] }, entry.id))) })] }) }), _jsx(Pagination, { page: data.page, totalPages: data.totalPages, totalElements: data.totalElements, onChange: setPage })] })), data && data.totalElements > 0 && (_jsxs("p", { className: "mt-3 text-xs text-ink-400", children: ["Showing ", data.content.length, " of ", data.totalElements, " entries. Newest first."] }))] }));
+}

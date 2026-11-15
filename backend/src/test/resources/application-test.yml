@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:mysql://localhost:3306/foodbridge_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${TEST_DB_USERNAME:foodbridge}
+    password: ${TEST_DB_PASSWORD:foodbridge}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    clean-disabled: false
+    locations: classpath:db/migration
+
+foodbridge:
+  security:
+    expose-reset-token: true
+  jwt:
+    secret: dGVzdC1zZWNyZXQta2V5LWZvci1mb29kYnJpZGdlLXVuaXQtdGVzdHMtb25seS0xMjM0NTY3ODkw
+    access-token-ttl: PT15M
+    refresh-token-ttl: P7D
+  seed:
+    demo-data: false
+  uploads:
+    directory: ./target/test-uploads
+  expiry:
+    scan-interval-ms: 3600000
+
+logging:
+  level:
+    root: WARN
+    com.foodbridge: INFO
+    org.hibernate.SQL: WARN

@@ -1,0 +1,121 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: foodbridge-backend
+  datasource:
+    url: "jdbc:mysql://localhost:3306/foodbridge?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8"
+    username: root
+    password: 123456789
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      connection-timeout: 30000
+      pool-name: foodbridge-pool
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: ${HIBERNATE_DIALECT:org.hibernate.dialect.MySQLDialect}
+        jdbc:
+          time_zone: UTC
+          batch_size: 30
+        order_inserts: true
+        order_updates: true
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 25MB
+  mvc:
+    problemdetails:
+      enabled: false
+
+foodbridge:
+  jwt:
+    # Development-only default. Production MUST set JWT_SECRET (>= 32 bytes, base64 or raw text).
+    secret: ${JWT_SECRET:Zm9vZGJyaWRnZS1kZXYtb25seS1zZWNyZXQta2V5LTIwMjYtcGxlYXNlLW92ZXJyaWRl}
+    access-token-ttl: PT15M
+    refresh-token-ttl: P7D
+    issuer: foodbridge
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://localhost:4173}
+    # Patterns (wildcards allowed) for preview/sandbox hosts. Keep narrow in production.
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:https://*--*.e2b.app,https://*.e2b.app,https://*.vercel.app,https://*.netlify.app,http://localhost:*,http://127.0.0.1:*}
+  security:
+    # SAMEORIGIN by default; set FB_FRAME_OPTIONS=DISABLE when embedding the app in an iframe.
+    frame-options: ${FB_FRAME_OPTIONS:SAMEORIGIN}
+    cookie-secure: ${COOKIE_SECURE:false}
+    cookie-same-site: ${COOKIE_SAME_SITE:Lax}
+    refresh-cookie-name: fb_refresh
+    max-failed-logins: 10
+    lockout-minutes: 15
+    # Local/demo convenience only: lets you complete the reset flow without email.
+    # application-prod.yml forces this to false.
+    expose-reset-token: ${EXPOSE_RESET_TOKEN:true}
+  uploads:
+    directory: ${UPLOAD_DIR:./uploads}
+    max-bytes: 5242880
+    allowed-types: image/jpeg,image/png,image/webp
+  seed:
+    demo-data: ${SEED_DEMO_DATA:true}
+  expiry:
+    scan-interval-ms: 60000
+    reminder-hours-before: 3
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    db:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+
+info:
+  app:
+    name: FoodBridge
+    version: 1.0.0
+    description: Food donation and NGO coordination platform
+
+logging:
+  level:
+    root: INFO
+    com.foodbridge: ${LOG_LEVEL:INFO}
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{requestId:-}] %logger{36} - %msg%n"
