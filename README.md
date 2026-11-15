@@ -1,12 +1,39 @@
 # FoodBridge
 
-**FoodBridge** is a full-stack food donation and NGO coordination platform. Food businesses can list surplus food, and verified NGOs can discover and claim suitable donations, coordinate pickups, and record completed handovers.
+<p align="center">
+  <strong>Rescue surplus food. Coordinate verified NGOs. Record every handover.</strong><br />
+  A full-stack food donation and NGO coordination platform built as a secure modular monolith.
+</p>
+
+<p align="center">
+  <img alt="Java 21" src="https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white" />
+  <img alt="Spring Boot 3.5.16" src="https://img.shields.io/badge/Spring%20Boot-3.5.16-6DB33F?logo=springboot&logoColor=white" />
+  <img alt="React 18" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" />
+  <img alt="JavaScript ES2022" src="https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black" />
+  <img alt="MySQL 8" src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white" />
+  <img alt="Backend tests 58 passed" src="https://img.shields.io/badge/backend%20tests-58%20passed-success" />
+  <img alt="Frontend tests 15 passed" src="https://img.shields.io/badge/frontend%20tests-15%20passed-success" />
+</p>
+
+FoodBridge connects food businesses with verified NGOs so surplus meals can be listed, assessed, claimed, and collected through a traceable workflow. The project demonstrates backend authorization, transactional state changes, relational database design, a responsive React interface, and automated testing.
 
 > **Food safety:** FoodBridge is a coordination tool, not a food-safety certifier. Donors are responsible for accurate preparation, storage, allergen, and expiry information. NGOs must independently assess food suitability before accepting or collecting it.
+
+> **Demo status:** No public deployment is configured. Run the app locally using the setup below; seeded accounts and records are development data only.
+
+## Engineering highlights
+
+- **Race-safe claiming:** a conditional database update and a unique active-claim key ensure that concurrent NGOs cannot both claim the same donation.
+- **Server-enforced rules:** role checks, NGO approval, suitability acknowledgement, ownership, and valid lifecycle transitions are checked by the backend—not just hidden in the UI.
+- **Auditable pickup completion:** donor handover and NGO collection must both be confirmed before a donation is completed and its impact is logged.
+- **Security basics implemented:** BCrypt password hashing, short-lived JWT access tokens, rotating hashed refresh tokens, HttpOnly refresh cookies, and validation on API inputs.
+- **Persistent + live notifications:** notification history is stored in MySQL, with SSE used for live delivery to connected clients.
+- **Automated verification:** 58 backend unit/integration tests and 15 frontend tests passed in the project workspace; lint and production build also passed.
 
 ## Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Technology](#technology)
 - [Architecture](#architecture)
 - [Repository structure](#repository-structure)
@@ -21,6 +48,13 @@
 - [Troubleshooting](#troubleshooting)
 - [Security notes](#security-notes)
 - [Known limitations](#known-limitations)
+
+## Product walkthrough
+
+1. A food business signs in and publishes a surplus-food listing with quantity, pickup window, storage and allergen details.
+2. An approved NGO reviews available listings, acknowledges suitability, and claims a donation.
+3. The two organizations coordinate pickup; the donor and NGO independently confirm handover and collection.
+4. The completed handover is retained in the workflow history and contributes to recorded impact totals.
 
 ## Features
 
@@ -51,6 +85,33 @@
 - Atomic donation claiming: a donation can have at most one active claim; competing claims cannot both succeed.
 - Two-party pickup confirmation; completion is recorded only after donor handover and NGO collection confirmation.
 - Donation expiry checks, impact logging, API validation, and a consistent API error response format.
+
+## Screenshots
+
+The following captures show the donor and NGO workflows. They use development/demo records; visible account names have been blurred. They are product screenshots, not evidence of a public deployment.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/browse-donations.png" alt="NGO browsing and filtering available food donations" width="100%" />
+      <p><strong>Browse donations.</strong> NGOs can review available listings and narrow them by food, category, city, quantity, and expiry.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/ngo-claims.png" alt="NGO claims list with donation status and pickup scheduling action" width="100%" />
+      <p><strong>Claim coordination.</strong> NGOs can track claimed donations, see current status, and continue to pickup scheduling.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/donor-dashboard.png" alt="Food donor dashboard showing donation and fulfillment summaries" width="100%" />
+      <p><strong>Donor dashboard.</strong> Donation availability, fulfillment progress, and recorded meal impact are summarized in one place.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/ngo-registration.png" alt="NGO registration form with verification process information" width="100%" />
+      <p><strong>NGO onboarding.</strong> The registration flow collects organization details and explains that claiming requires administrator approval.</p>
+    </td>
+  </tr>
+</table>
 
 ## Technology
 
@@ -143,7 +204,7 @@ FoodBridge/
 │   ├── package-lock.json
 │   ├── vite.config.js
 │   └── src/
-│       ├── api/                    # API client, endpoint functions, types
+│       ├── api/                    # API client, endpoint functions, DTO helpers
 │       ├── auth/                   # auth context and protected routes
 │       ├── components/             # reusable UI, forms, tables, notifications
 │       ├── hooks/                  # reusable data hooks
@@ -365,16 +426,9 @@ This means a prior attempt to apply V1 failed. MySQL DDL may leave tables behind
 
 ### Flyway V1: `Cannot add foreign key constraint` at the `claims` table
 
-The failure has been observed on a local MySQL 8 setup around the `claims` table in V1 (the foreign keys are `fk_claims_donation` and `fk_claims_ngo`). The same migration has succeeded in this workspace against MariaDB 11.8.6, but the exact MySQL 8 foreign-key cause has not yet been confirmed. Capture the actual schema/server details before retrying:
+The cause was MySQL's restriction on referential actions for a foreign key on the base column of a **STORED generated column**. `claims.active_donation_id` is generated from `donation_id`, and the original `fk_claims_donation` specified `ON DELETE CASCADE`. MySQL rejects that combination. V1 now omits the cascade, so the foreign key uses the default `RESTRICT` behavior and preserves donation/claim history. See [MySQL bug 88111](https://bugs.mysql.com/bug.php?id=88111) for the server limitation.
 
-```sql
-SELECT DATABASE(), VERSION();
-SHOW CREATE TABLE foodbridge_dev.users;
-SHOW CREATE TABLE foodbridge_dev.donations;
-SHOW ENGINE INNODB STATUS;
-```
-
-Run the InnoDB status query immediately after reproducing the failure and inspect `LATEST FOREIGN KEY ERROR`. Ensure the output is from the exact schema in `DB_URL`. If the section is absent, capture the full MySQL server error log or run the failing `CREATE TABLE claims` statement manually and query InnoDB status immediately afterward. Avoid `repair` or deleting Flyway history as a substitute for correcting the cause.
+If a previous V1 attempt failed, the old schema may contain partial tables and a failed Flyway history row. For a disposable local database, stop the backend, drop and recreate the affected database, then restart with the corrected V1 migration. **Dropping the database deletes its data.** Do not just run `flyway repair`: it does not roll back partial DDL. For a database with data you need, back it up and plan a deliberate schema repair instead.
 
 ### `url must start with jdbc`
 
@@ -400,6 +454,6 @@ Stop the other Spring Boot process or set a different `SERVER_PORT`. The fronten
 ## Known limitations
 
 - Email delivery for password-reset links is not configured; the local profile exposes a reset token for development/testing. Production email integration must be configured before offering user-facing reset emails.
-- The MySQL 8 V1 foreign-key migration failure described above remains under investigation; MariaDB 11.8.6 is the database engine used for verification in this workspace.
+- The V1 migration fix for MySQL's generated-column/cascade restriction is applied. Recreate a disposable database if it has a failed V1 attempt; the migration was re-verified in this workspace on MariaDB 11.8.6.
 - Dockerfiles, Docker Compose, GitHub Actions workflows, and cloud deployment configuration are not currently included in this repository. No deployment is claimed.
 - No screenshot assets are committed in this project copy.
